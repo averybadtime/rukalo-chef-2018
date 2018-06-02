@@ -42,6 +42,7 @@
 </template>
 <script>
   import { DB } from "@/firebase"
+  import queueHelper from "@/helpers/queue"
   import moment from "moment"
   export default {
     created() {
@@ -50,36 +51,44 @@
     mounted() {
       $("#queueModal").modal()
     },
+    watch: {
+      queue(newVal) {
+        const uid = this.$store.state.user.uid
+        const queueRef = DB.ref("/users/" + uid + "/queue")
+        queueRef.set(newVal)
+      }
+    },
     computed: {
       queue() {
         return this.$store.state.queue
       },
       dishes() {
-
         var dishes = []
-        this.queue.forEach((order) => {
-          dishes.push(order.dish)
-        })
+        for (let i in this.orderedQueue) {
+          for (let j in this.orderedQueue[i].dishes) {
+            dishes.push(this.orderedQueue[i].dishes[j])
+          }
+        }
         return dishes
       },
       additional() {
         
         var additional = []
-        this.queue.forEach((order) => {
-          for (let i in order.additional) {
-            additional.push(order.additional[i])
+        for (let i in this.orderedQueue) {
+          for (let j in this.orderedQueue[i].additional) {
+            additional.push(this.orderedQueue[i].additional[j])
           }
-        })
+        }
         return additional
       },
       drinks() {
 
         var drinks = []
-        this.queue.forEach((order) => {
-          for (let i in order.drinks) {
-            drinks.push(order.drinks[i])
+        for (let i in this.orderedQueue) {
+          for (let j in this.orderedQueue[i].drinks) {
+            drinks.push(this.orderedQueue[i].drinks[j])
           }
-        })
+        }
         return drinks
       },
       totalDishes() {
@@ -109,19 +118,19 @@
       totalQueue() {
         const totalQueue = (this.totalDishes + this.totalAdditional + this.totalDrinks)
         return totalQueue
+      },
+      orderedQueue() {
+        return queueHelper.sortQueueByChef(this.queue)
       }
     },
-    watch: {
-      queue(newVal) {
-        const uid = this.$store.state.user.uid
-        const queueRef = DB.ref("/users/" + uid + "/queue")
-        queueRef.set(newVal)
+    data() {
+      return {
+        uid: this.$store.state.user.uid
       }
     },
     methods: {
       listenQueue() {
-        const uid = this.$store.state.user.uid
-        const queueRef = DB.ref("/users/" + uid + "/queue")
+        const queueRef = DB.ref("/users/" + this.uid + "/queue")
         queueRef.on("value", (snapshot) => {
           if (snapshot.val() !== null) this.$store.commit("setQueue", snapshot.val())
         })
@@ -129,141 +138,56 @@
       deleteQueue() {
         if (confirm("¿Eliminar orden actual?")) this.$store.dispatch("deleteQueue").then(() => M.toast({ html: "Pedido eliminado!" }, 2000))
       },
+      getTotalOrder(order) {
+        let total = 0
+        order.dishes.forEach((dish) => total += dish.price * dish.quantity)
+        order.additional.forEach((add) => total += add.info.price * add.quantity)
+        order.drinks.forEach((drink) => total += drink.info.price * drink.quantity)
+        return this.toRukas(total)
+      },
+      payToChef(order) {
+        const chefRukasBagRef = DB.ref("/chefs/" + order.chefKey + "/rukas/bag")
+                  
+        chefRukasBagRef.transaction((chefBag) => {
+          if (!chefBag) chefBag = 0
+          const totalOrder = this.getTotalOrder(order)
+          chefBag += totalOrder
+          return chefBag
+        })
+      },
       pay() {
-        if (confirm("¿Confirmar orden actual?")) {
+        if (confirm("¿Confirmar orden actual? ** Los tiempos de entrega pueden variar si ordenó a más de un (1) chef.")) {
 
-          const uid = this.$store.state.user.uid
-          const rukasBagRef = DB.ref("/users/" + uid + "/rukas/bag")
-          
-          // DB.ref("/invoices").on("child_added", invoice => {
-          //   console.log(invoice.val())
-          // })
+          const rukasBagRef = DB.ref("/users/" + this.uid + "/rukas/bag")
 
-          // rukasBagRef.transaction((bag) => {
-          //   const thisInvoice = this.toRukas(this.totalQueue)
-          //   if (thisInvoice <= bag) {
+          rukasBagRef.transaction((bag) => {
+            const thisInvoice = this.toRukas(this.totalQueue)
+            if (thisInvoice <= bag) {
 
               const now = moment().locale("es").format("L")
-          //     const invoicesRef = DB.ref("/invoices")
+              const invoicesRef = DB.ref("/invoices")
 
-              // Organizar el queue por chef para guardarla
-
-              // invoices...
-                // códigoDeFactura
-                  // createdAt...
-                  // user
-                  // order
-                    // chef 1
-                      // dishes
-                        // 0
-                         // 1
-                        // 2
-                      // additional
-                        // 0
-                    // chef 2
-
-                    // chef 3
-
-
-
-              var newInvoice = {
-                user: uid,
-
+              invoicesRef.push({
+                user: this.uid,
+                order: this.orderedQueue,
                 createdAt: now
-              }
+              }).then(() => {
+                
+                this.orderedQueue.forEach((order) => {
+                  this.payToChef(order)
+                })
 
-              var chefs = {}
-              var  newQueue = []
-
-              var copyQueue = JSON.parse(JSON.stringify(this.queue))
-
-              copyQueue.forEach((order, i) => {
-
-                const dish = order.dish
-                const additional = order.additional || null
-                const drinks = order.drinks || null
-                const chefKey = order.chefKey
-
-                if (chefs.hasOwnProperty(chefKey)) {
-
-                  const index = chefs[chefKey]
-
-
-                  newQueue[index].dishes.forEach((i) => {
-                    if (i.key === dish.key) {
-                      i.quantity += dish.quantity
-                      return
-                    } else {
-                      newQueue[index].dishes.push(dish)
-                    }
-                  })
-
-                  if (additional) {
-                    if (!newQueue[index].additional) newQueue[index].additional = []
-                    additional.forEach((add) => {
-                      newQueue[index].additional.forEach((i) => {
-                        console.log(add)
-                        console.log(i)
-                        if (i.key === add.key) {
-                          i.quantity += add.quantity
-                          return
-                        } else {
-                          newQueue[index].additional.push(add)
-                        }
-                      })
-                    })
-                  }
-
-                  if (drinks) {
-                    if (!newQueue[index].drinks) newQueue[index].drinks = []
-                    drinks.forEach((drink) => {
-                      newQueue[index].drinks.forEach((i) => {
-                        if (i.key === drink.key) {
-                          i.quantity += drink.quantity
-                          return
-                        } else {
-                          newQueue[index].drinks.push(drink)
-                        }
-                      })
-                    })
-                  }
-
-                } else {
-                  var size = Object.keys(chefs).length
-                  chefs[chefKey] = size
-
-                  newQueue[size] = {
-                    dishes: [dish],
-                    additional: additional,
-                    drinks: drinks
-                  }
-                }
+                this.$store.commit("deleteQueue")
+                M.toast({ html: "Pedido añadido con éxito" }, 2000)
               })
-
-              // console.log(chefs)
-              // console.log("Esta es mi queue original...")
-              // console.log(JSON.parse(JSON.stringify(this.queue)))
-              // console.log("==========================================================")
-              // console.log("Esta es mi queue customizada...")
-              // console.log(JSON.parse(JSON.stringify(newQueue)))
-              
-          //     invoicesRef.push({
-          //       user: uid,
-          //       order: this.queue,
-          //       state: "pending",
-          //       createdAt: now
-          //     }).then(() => {
-          //       this.$store.commit("deleteQueue")
-          //       M.toast({ html: "Pedido añadido con éxito" }, 2000)
-          //     })
-          //     bag -= thisInvoice
-          //   } else {
-          //     const message = "Saldo insuficiente, te invitamos a recargar rukas :)"
-          //     console.error(message)
-          //     alert(message)
-          //   }
-          //   return bag
-          // })
+              bag -= thisInvoice
+            } else {
+              const message = "Saldo insuficiente, te invitamos a recargar rukas :)"
+              console.error(message)
+              alert(message)
+            }
+            return bag
+          })
         }
       }
     }
