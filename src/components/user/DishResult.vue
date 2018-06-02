@@ -72,11 +72,6 @@
         }
       }
     },
-    computed: {
-      queue() {
-        return this.$store.state.queue
-      }
-    },
     methods: {
       add() {
         this.quantity += 1
@@ -101,7 +96,6 @@
         this.activeTab++
       },
       dishDone(dishQuantity) {
-        
         this.newOrder.dish = {
           key: this.dish.key,
           name: this.dish.info.name,
@@ -132,6 +126,7 @@
           done()
         }).then(() => {
           this.newOrder = {
+            chefKey: this.dish.chefKey,
             dish: null,
             additional: null,
             drinks: null
