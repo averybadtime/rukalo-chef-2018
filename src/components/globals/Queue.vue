@@ -9,24 +9,24 @@
             br
             ul
               li(v-for="dish in dishes")
-                em {{ dish.name }} x {{ dish.quantity }} unds. ({{ dish.price | currency }}) = {{ dish.quantity * dish.price | currency }} COP
-              h6 Total: {{ totalDishes | currency }}
+                em {{ dish.name }} x {{ dish.quantity }} unds. ({{ toRukas(dish.price) }} RUKAS) = {{ toRukas(dish.quantity * dish.price) }} RUKAS
+              h6 Total: {{ toRukas(totalDishes) }} RUKAS
 
           li(v-if="additional.length > 0")
             b Adiciones
             br
             ul
               li(v-for="add in additional")
-                em {{ add.info.name }} x {{ add.quantity }} unds. ({{ add.info.price | currency }}) = {{ add.quantity * add.info.price | currency }} COP
-              h6 Total: {{ totalAdditional | currency }}
+                em {{ add.info.name }} x {{ add.quantity }} unds. ({{ toRukas(add.info.price) }}) RUKAS = {{ toRukas(add.quantity * add.info.price) }} RUKAS
+              h6 Total: {{ toRukas(totalAdditional) }} RUKAS
               
           li(v-if="drinks.length > 0")
             b Bebidas
             br
             ul
               li(v-for="drink in drinks")
-                em {{ drink.info.name }} x {{ drink.quantity }} unds. ({{ drink.info.price | currency }}) = {{ drink.quantity * drink.info.price | currency }} COP
-              h6 Total: {{ totalDrinks | currency }}
+                em {{ drink.info.name }} x {{ drink.quantity }} unds. ({{ toRukas(drink.info.price) }}) RUKAS = {{ toRukas(drink.quantity * drink.info.price) }} RUKAS
+              h6 Total: {{ toRukas(totalDrinks) }} RUKAS
           li.divider
           h6 Total esta factura: {{ toRukas(totalQueue) }} RUKAS
           h6(v-if="$store.state.rukas") Mi saldo en RUKAS: {{ $store.state.rukas.bag }} RUKAS
