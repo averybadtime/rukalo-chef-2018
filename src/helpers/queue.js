@@ -64,7 +64,8 @@ function sortQueueByChef(queue) {
         dishes: [dish],
         additional,
         drinks,
-        chefKey
+        chefKey,
+        state: "PENDING"
       }
     }
   })
