@@ -172,11 +172,6 @@
                 order: this.orderedQueue,
                 createdAt: now
               }).then(() => {
-                
-                this.orderedQueue.forEach((order) => {
-                  this.payToChef(order)
-                })
-
                 this.$store.commit("deleteQueue")
                 M.toast({ html: "Pedido añadido con éxito" }, 2000)
               })
