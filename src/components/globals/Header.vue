@@ -7,7 +7,7 @@
 					a.sidenav-trigger(data-target="mobile-demo", href="#!")
 						i.material-icons menu
 					
-					a.right.queue(@click="openQueueModal") Queue
+					a.right.queue(v-if="isUser()", @click="openQueueModal") Queue
 
 		ul.sidenav#mobile-demo
 			li
@@ -25,6 +25,8 @@
 
 			// Chefs routes
 			li(v-if="isChef()")
+				router-link.sidenav-close(to="/me/chef-orders") Órdenes
+			li(v-if="isChef()")
 				router-link.sidenav-close(to="/me/dishes") Gestionar platos
 			li(v-if="isChef()")
 				router-link.sidenav-close(to="/me/drinks") Gestionar bebidas
@@ -40,32 +42,8 @@
 
 <script>
 	import { DB, AUTH } from "@/firebase"
+	import { store } from "@/store"
 	export default {
-		created() {
-			if (this.$store.state.user) {
-        /* uid */
-        const uid = this.$store.state.user.uid
-
-        var isUser
-
-        /* loginAttemp is user? */
-        DB.ref(`/users/${ uid }`).once("value", snapshot => {
-          isUser = snapshot.exists()
-        }).then(() => {
-          var dbRef
-          
-          /* is user... */
-          if (isUser) dbRef = DB.ref(`/users/${ uid }/info`)
-          /* is chef... */
-          else  dbRef = DB.ref(`/chefs/${ uid }/info`)
-
-          /* get user info */
-          dbRef.on("value", snapshot => {
-            this.$store.state.userInfo = snapshot.val()
-          })
-        })
-      }
-		},
 		mounted() {
 			$(".sidenav").sidenav()
 		},
@@ -74,16 +52,16 @@
 				$("#queueModal").modal("open")
 			},
 			isUser() {
-				return this.$store.state.userInfo.userType === "USER"
+				return store.state.userInfo.userType === "USER"
 			},
 			isChef() {
-				return this.$store.state.userInfo.userType === "CHEF"
+				return store.state.userInfo.userType === "CHEF"
 			},
 			signOut() {
 				AUTH.signOut()
 					.then(() => {
-						this.$store.state.user = null
-						this.$store.state.userInfo = {}
+						store.state.user = null
+						store.state.userInfo = {}
 						this.$router.replace("/login")
 					})
 			}

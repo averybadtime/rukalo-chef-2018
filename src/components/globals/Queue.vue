@@ -29,10 +29,30 @@
               h6 Total: {{ toRukas(totalDrinks) }} RUKAS
           li.divider
           h6 Total esta factura: {{ toRukas(totalQueue) }} RUKAS
-          h6(v-if="$store.state.rukas") Mi saldo en RUKAS: {{ $store.state.rukas.bag }} RUKAS
+          h6(v-if="$store.state.rukas") Mi saldo en RUKAS: {{ rukasBag }} RUKAS
+
+          .row
+            .col.s12
+              h5 Elige la dirección
+
+              input(type="radio", v-model="address", value="a")
+              span Elegir de mis direcciones
+              |&nbsp;
+              input(type="radio", v-model="address", value="b")
+              span Escribir dirección
+
+              div(v-if="address === 'a'")
+                template(v-if="addresses.length > 0")
+                  select(v-model="selectedAddress")
+                    option(v-for="address in addresses", :value="address.key") {{ address.data.address }}
+                p(v-else) Aún no has guardado una dirección.
+              
+              div(v-else-if="address === 'b'")
+                input(type="text", v-model="customAddress", placeholder="Dirección")
+          
       template(v-else)
         h4 Oops!
-        p Parece que aún no has ordenado algo. :(    
+        p Parece que aún no has ordenado. :(    
     .modal-footer
       template(v-if="queue.length === 0")
         a.modal-close.waves-effect.waves-green.btn-flat Cerrar
@@ -42,6 +62,7 @@
 </template>
 <script>
   import { DB } from "@/firebase"
+  import { store } from "@/store"
   import queueHelper from "@/helpers/queue"
   import moment from "moment"
   export default {
@@ -53,14 +74,28 @@
     },
     watch: {
       queue(newVal) {
-        const uid = this.$store.state.user.uid
+        const uid = store.state.user.uid
         const queueRef = DB.ref("/users/" + uid + "/queue")
         queueRef.set(newVal)
       }
     },
+    data() {
+      return {
+        uid: store.state.user.uid,
+        address: "a",
+        customAddress: "",
+        selectedAddress: ""
+      }
+    },
     computed: {
+      addresses() {
+        return store.state.userAddresses
+      },
+      rukasBag() {
+        return store.state.rukas.bag
+      },
       queue() {
-        return this.$store.state.queue
+        return store.state.queue
       },
       dishes() {
         var dishes = []
@@ -72,7 +107,6 @@
         return dishes
       },
       additional() {
-        
         var additional = []
         for (let i in this.orderedQueue) {
           for (let j in this.orderedQueue[i].additional) {
@@ -82,7 +116,6 @@
         return additional
       },
       drinks() {
-
         var drinks = []
         for (let i in this.orderedQueue) {
           for (let j in this.orderedQueue[i].drinks) {
@@ -123,20 +156,15 @@
         return queueHelper.sortQueueByChef(this.queue)
       }
     },
-    data() {
-      return {
-        uid: this.$store.state.user.uid
-      }
-    },
     methods: {
       listenQueue() {
         const queueRef = DB.ref("/users/" + this.uid + "/queue")
         queueRef.on("value", (snapshot) => {
-          if (snapshot.val() !== null) this.$store.commit("setQueue", snapshot.val())
+          if (snapshot.val() !== null) store.commit("setQueue", snapshot.val())
         })
       },
       deleteQueue() {
-        if (confirm("¿Eliminar orden actual?")) this.$store.dispatch("deleteQueue").then(() => M.toast({ html: "Pedido eliminado!" }, 2000))
+        if (confirm("¿Eliminar orden actual?")) store.dispatch("deleteQueue").then(() => M.toast({ html: "Pedido eliminado!" }, 2000))
       },
       getTotalOrder(order) {
         let total = 0
@@ -156,28 +184,48 @@
         })
       },
       pay() {
+        let address
+        if (this.address === "a") {
+          if (this.selectedAddress === "") {
+            const message = "No has seleccionado una dirección."
+            console.error(message)
+            alert(message)
+            return
+          }
+          for (let i in this.addresses) {
+            if (this.addresses[i].key === this.selectedAddress) {
+              address = this.addresses[i].data.address
+              break
+            }
+          }
+        } else if (this.address === "b") {
+          if (this.customAddress === "") {
+            const message = "Proporciona una dirección."
+            console.error(message)
+            alert(message)
+            return
+          }
+          address = this.customAddress
+        }
+
         if (confirm("¿Confirmar orden actual? ** Los tiempos de entrega pueden variar si ordenó a más de un (1) chef.")) {
 
           const rukasBagRef = DB.ref("/users/" + this.uid + "/rukas/bag")
-
           rukasBagRef.transaction((bag) => {
             const thisInvoice = this.toRukas(this.totalQueue)
             if (thisInvoice <= bag) {
-
               const now = moment().locale("es").format("L")
               const invoicesRef = DB.ref("/invoices")
-
               invoicesRef.push({
                 user: this.uid,
+                address: address,
                 order: this.orderedQueue,
                 createdAt: now
               }).then(() => {
-                
                 this.orderedQueue.forEach((order) => {
                   this.payToChef(order)
                 })
-
-                this.$store.commit("deleteQueue")
+                store.commit("deleteQueue")
                 M.toast({ html: "Pedido añadido con éxito" }, 2000)
               })
               bag -= thisInvoice

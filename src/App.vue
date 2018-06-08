@@ -11,6 +11,7 @@
 
 <script>
   import { DB } from "@/firebase"
+  import { store } from "@/store"
   import CustomHeader from "./components/globals/Header.vue"
   import Queue from "./components/globals/Queue.vue"
   import CustomFooter from "./components/globals/Footer.vue"
@@ -27,6 +28,9 @@
     //     DB.ref("/food-specs/drinks/categories").push(drink)
     //   })
       this.listenRukas()
+      if (this.isUser) {
+        this.getUserAddresses()
+      }
     },
     components: {
       CustomHeader,
@@ -35,20 +39,25 @@
     },
     computed: {
       user() {
-        return this.$store.state.user
+        return store.state.user
       },
       isUser() {
-        return this.$store.state.userInfo.userType === "USER" ? true : false
+        return store.state.userInfo.userType === "USER" ? true : false
       }
     },
     methods: {
       listenRukas() {
         if (this.user) {
-          const uid = this.$store.state.user.uid
+          const uid = store.state.user.uid
           DB.ref("/users/" + uid + "/rukas").on("value", snapshot => {
-            this.$store.commit("setRukas", snapshot.val())
+            store.commit("setRukas", snapshot.val())
           })
         }
+      },
+      getUserAddresses() {
+        const uid = this.user.uid
+        const addressesRef = DB.ref("/users/" + uid + "/addresses")
+        addressesRef.on("value", snapshot => store.commit("setUserAddresses", snapshot))
       }
     }
   }
