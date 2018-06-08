@@ -13,7 +13,7 @@
           .col.s12
             input.btn.btn-block(type="submit", value="¡Adelante!")
           .col.s12
-            router-link.right(to="/register") ¿No eres miembro aún? ¡Regístrate!
+            router-link.right(to="/register") ¿No eres miembro aún? ¡Regístrate! LuisK AQUI!
 </template>
 
 <script>
