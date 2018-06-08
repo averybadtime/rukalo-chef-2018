@@ -36,15 +36,11 @@
         .divider
         .row
           .col.s12
-            transition(name="fade", mode="out-in")
-              div(v-if="isLoadingAddresses")
-                p Obteniendo direcciones...
-              div(v-else)
-                div(v-if="addresses && addresses.length > 0")
-                  div(v-for="address in addresses")
-                    address-card(:address="address")
-                div(v-else)
-                  p No has guardado direcciones aún.
+            div(v-if="addresses && addresses.length > 0")
+              div(v-for="address in addresses")
+                address-card(:address="address")
+            div(v-else)
+              p No has guardado direcciones aún.
             .row
               a.btn.btn-block(@click="openModal")
                 i.material-icons.left home
@@ -53,16 +49,10 @@
 
 <script>
   import { STORAGE, DB } from "@/firebase"
+  import { store } from "@/store"
   import AddressCard from "@/components/user/AddressCard.vue"
   import Modal from "@/components/Modal.vue"
   export default {
-    created() {
-      const uid = this.$store.state.user.uid
-      DB.ref("/users").child(`${uid}/addresses`).on("value", snapshot => {
-        this.$store.commit("setUserAddresses", snapshot)
-        this.isLoadingAddresses = false
-      })
-    },
     components: {
       AddressCard,
       Modal
@@ -70,7 +60,6 @@
     data() {
       return {
         showFileUploader: false,
-        isLoadingAddresses: true,
         address: {
           name: null,
           address: null,
@@ -80,15 +69,14 @@
     },
     computed: {
       reference() {
-        const uid = this.$store.state.user.uid
-        const userType = this.userType
-        return userType === "USER" ? `/users/${ uid }/info` : `/chefs/${ uid }/info`
+        const uid = store.state.user.uid
+        return this.userType === "USER" ? `/users/${ uid }/info` : `/chefs/${ uid }/info`
       },
       addresses() {
-        return this.$store.state.userAddresses
+        return store.state.userAddresses
       },
       userType() {
-        return this.$store.state.userInfo.userType
+        return store.state.userInfo.userType
       }
     },
     methods: {
@@ -107,7 +95,7 @@
             }
           }
         }
-        const uid = this.$store.state.user.uid
+        const uid = store.state.user.uid
         DB.ref(`/users/${ uid }/addresses`)
           .push(this.address)
           .then(() => {

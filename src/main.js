@@ -5,7 +5,7 @@ import VueRouter  from "vue-router"
 import VueCurrency from "vue-currency-filter"
 import { routes } from "./routes"
 import { store } from "./store"
-import { AUTH } from "./firebase"
+import { DB, AUTH } from "./firebase"
 
 import FileUploader from "./components/globals/FileUploader.vue"
 
@@ -51,17 +51,40 @@ const toRukasMixin = {
 	}
 }
 
+function loadUserInfo(uid) {
+	return new Promise((resolve) => {
+		if (store.state.user) {
+			var isUser
+			DB.ref(`/users/${ uid }`).once("value", snapshot => {
+				isUser = snapshot.exists()
+			}).then(() => {
+				var dbRef
+				
+				if (isUser) dbRef = DB.ref(`/users/${ uid }/info`)
+				else  dbRef = DB.ref(`/chefs/${ uid }/info`)
+
+				dbRef.once("value", (snapshot) => {
+					return resolve(snapshot.val())
+				})
+			})
+		}
+	})
+}
+
 Vue.mixin(toRukasMixin)
 
 AUTH.onAuthStateChanged(user => {
 	store.state.user = user
-	
-	if (!app) {
-		app = new Vue({
-		  el: '#app',
-			router,
-			store,
-		  render: h => h(App)
-		})
-	}
+
+	loadUserInfo(user.uid).then((value) => {
+		store.state.userInfo = value
+		if (!app) {
+			app = new Vue({
+				el: '#app',
+				router,
+				store,
+				render: h => h(App)
+			})
+		}
+	})
 })
